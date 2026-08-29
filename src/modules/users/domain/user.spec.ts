@@ -1,52 +1,52 @@
 import { describe, it, expect } from 'vitest';
-import { UserEmail, InvalidEmailError } from './value-objects/user-email';
-import { UserPassword, InvalidPasswordError } from './value-objects/user-password';
-import { User } from './user.entity';
+import { User } from './user';
 
-describe('User Domain Module', () => {
-    describe('UserEmail Value Object', () => {
-        it('should create a valid email when formatted correctly', () => {
-            const result = UserEmail.create('Test@Domain.com');
-            expect(result.isOk).toBe(true);
-            if (result.isOk) {
-                expect(result.value.value).toBe('test@domain.com');
-            }
+describe('User Domain Entity Unit Tests', () => {
+    it('should create a valid user instance', () => {
+        const result = User.create({
+            email: 'test@example.com',
+            passwordHash: 'hashed_password_123',
+            fullName: 'John Doe',
+            role: 'user',
+            isActive: true,
         });
 
-        it('should return error for invalid email string', () => {
-            const result = UserEmail.create('invalid-email');
-            expect(result.isErr).toBe(true);
-            if (result.isErr) {
-                expect(result.error).toBeInstanceOf(InvalidEmailError);
-            }
-        });
+        expect(result.isOk).toBe(true);
+        if (result.isOk) {
+            const user = result.unwrap();
+            expect(user.email).toBe('test@example.com');
+            expect(user.fullName).toBe('John Doe');
+            expect(user.role).toBe('user');
+        }
     });
 
-    describe('UserPassword Value Object', () => {
-        it('should accept valid password', () => {
-            const result = UserPassword.create('securePassword123');
-            expect(result.isOk).toBe(true);
+    it('should fail creation with invalid email', () => {
+        const result = User.create({
+            email: 'invalid-email',
+            passwordHash: 'hashed_password_123',
+            fullName: 'John Doe',
+            role: 'user',
+            isActive: true,
         });
 
-        it('should reject short password', () => {
-            const result = UserPassword.create('123');
-            expect(result.isErr).toBe(true);
-            if (result.isErr) {
-                expect(result.error).toBeInstanceOf(InvalidPasswordError);
-            }
-        });
+        expect(result.isErr).toBe(true);
+        if (result.isErr) {
+            expect(result.error.message).toBe('Invalid email format');
+        }
     });
 
-    describe('User Entity', () => {
-        it('should instantiate User aggregate with valid properties', () => {
-            const email = UserEmail.create('dev@nexus.com').unwrap();
-            const password = UserPassword.create('strongPassword123').unwrap();
-
-            const user = User.create({ email, password });
-
-            expect(user.id).toBeDefined();
-            expect(user.email.value).toBe('dev@nexus.com');
-            expect(user.createdAt).toBeInstanceOf(Date);
+    it('should fail creation with short full name', () => {
+        const result = User.create({
+            email: 'test@example.com',
+            passwordHash: 'hashed_password_123',
+            fullName: 'A',
+            role: 'user',
+            isActive: true,
         });
+
+        expect(result.isErr).toBe(true);
+        if (result.isErr) {
+            expect(result.error.message).toBe('Full name must be at least 2 characters long');
+        }
     });
 });
