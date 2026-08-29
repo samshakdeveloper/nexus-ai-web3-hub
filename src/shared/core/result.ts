@@ -1,9 +1,7 @@
-export type Result<T, E = Error> = Success<T, E> | Failure<T, E>;
+export class Ok<T, E> {
 
-export class Success<T, E> {
-    readonly isSuccess: true = true;
-    readonly isFailure: false = false;
-
+    readonly isOk: true = true;
+    readonly isErr: false = false;
     constructor(public readonly value: T) {}
 
     public unwrap(): T {
@@ -11,16 +9,18 @@ export class Success<T, E> {
     }
 }
 
-export class Failure<T, E> {
-    readonly isSuccess: false = false;
-    readonly isFailure: true = true;
+export class Err<T, E> {
+    readonly isOk: false = false;
+    readonly isErr: true = true;
 
     constructor(public readonly error: E) {}
 
-    public unwrap(): never {
-        throw new Error('Cannot unwrap a Failure result.');
+    public unwrap(): T {
+        throw new Error('Cannot unwrap an Err value');
     }
 }
 
-export const ok = <T, E = Error>(value: T): Result<T, E> => new Success<T, E>(value);
-export const fail = <T, E = Error>(error: E): Result<T, E> => new Failure<T, E>(error);
+export type Result<T, E> = Ok<T, E> | Err<T, E>;
+
+export const ok = <T, E = never>(value: T): Result<T, E> => new Ok<T, E>(value);
+export const err = <T = never, E = unknown>(error: E): Result<T, E> => new Err<T, E>(error);
