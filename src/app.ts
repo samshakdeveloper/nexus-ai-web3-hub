@@ -1,27 +1,22 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
-import { userRoutes } from '@modules/users/infrastructure/http/users.routes';
+import express, { Application } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { errorMiddleware } from '@shared/infrastructure/http/middlewares/error.middleware';
 
-const app: express.Application = express();
+const app: Application = express();
 
-// Middleware های عمومی
+// Security & Base Middlewares
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ثبت روترهای ماژول‌ها
-app.use('/api/v1/users', userRoutes);
-
-// Route تست سلامت سرور
-app.get('/health', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+// Health Check Route
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Middleware سراسری مدیریت خطاها (Global Error Handler)
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    // eslint-disable-next-line no-console
-    console.error('❌ Unhandled Error:', err);
-    res.status(500).json({
-        success: false,
-        error: 'Internal Server Error',
-    });
-});
+// Global Error Handler (Must be last middleware)
+app.use(errorMiddleware);
 
-export { app };
+export default app;
