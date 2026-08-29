@@ -1,5 +1,4 @@
 export class Ok<T, E> {
-
     readonly isOk: true = true;
     readonly isErr: false = false;
     constructor(public readonly value: T) {}
@@ -11,6 +10,7 @@ export class Ok<T, E> {
 
 export class Err<T, E> {
     readonly isOk: false = false;
+    readonly isTrue: true = true; // یا readonly isErr: true = true
     readonly isErr: true = true;
 
     constructor(public readonly error: E) {}
