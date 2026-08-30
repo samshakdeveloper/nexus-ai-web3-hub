@@ -1,12 +1,12 @@
 import app from './app';
 import { env } from '@config/env.config';
 import { logger } from '@shared/infrastructure/logger';
-import { DatabaseConnection } from '@shared/infrastructure/database/mongoose.connection';
+import { DatabaseService } from '@shared/infrastructure/database/mongoose.connection';
 
 const startServer = async (): Promise<void> => {
     try {
         // Connect to Database
-        const db = DatabaseConnection.getInstance();
+        const db = DatabaseService.getInstance();
         await db.connect();
 
         // Start Express Server

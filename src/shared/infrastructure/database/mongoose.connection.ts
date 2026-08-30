@@ -1,7 +1,7 @@
 import mongoose, { Connection } from 'mongoose';
 import { env } from '@config/env.config';
 import { logger } from '@shared/infrastructure/logger';
-import { Result, ok, fail } from '@shared/core/result';
+import { Result, ok, err } from '@shared/core/result';
 
 export class DatabaseService {
     private static instance: DatabaseService;
@@ -33,7 +33,7 @@ export class DatabaseService {
             return ok(this.connection);
         } catch (error) {
             logger.error('MongoDB Connection Error:', error);
-            return fail(error as Error);
+            return err(error as Error);
         }
     }
 

@@ -2,8 +2,9 @@ import { ValueObject } from '../../../../shared/domain/value-object';
 import { Result, ok, err } from '../../../../shared/core/result';
 import { BaseError } from '../../../../shared/core/errors/base.error';
 
-interface UserEmailProps {
+export interface UserEmailProps {
     value: string;
+    [key: string]: unknown; // اضافه کردن Index Signature
 }
 
 export class InvalidEmailError extends BaseError {

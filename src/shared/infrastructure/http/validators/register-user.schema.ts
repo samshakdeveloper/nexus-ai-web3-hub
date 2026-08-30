@@ -1,4 +1,3 @@
-import { z } from 'express-zod-safe'; // یا مستقیم از z پکیج zod
 import { z } from 'zod';
 
 export const registerUserSchema = z.object({

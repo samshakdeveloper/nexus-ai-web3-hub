@@ -2,8 +2,9 @@ import { ValueObject } from '../../../../shared/domain/value-object';
 import { Result, ok, err } from '../../../../shared/core/result';
 import { BaseError } from '../../../../shared/core/errors/base.error';
 
-interface UserPasswordProps {
+export interface UserPasswordProps {
     value: string;
+    [key: string]: unknown; // اضافه کردن این خط
 }
 
 export class InvalidPasswordError extends BaseError {

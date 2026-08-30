@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { UserController } from '@modules/users/infrastructure/http/controllers/user.controller';
 import { CreateUserUseCase } from '@modules/users/application/use-cases/create-user.use-case';
 import { AuthenticateUser } from '@modules/users/application/use-cases/authenticate-user';
-import { MongoUserRepository } from '@modules/users/repositories/mongo-user.repository';
+import { MongoUserRepository } from '@modules/users/infrastructure/repositories/mongo-user.repository';
 
 const userRouter = Router();
 

@@ -3,7 +3,7 @@ import { UserRepository } from '@modules/users/domain/user.repository';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
-import { MongoDBClient } from '@shared/infrastructure/database/mongodb';
+import { MongoDatabase } from '@shared/infrastructure/database/mongodb';
 
 interface UserDocument extends Document {
     _id: string;
@@ -16,8 +16,11 @@ export class MongoUserRepository implements UserRepository {
     private collection: Collection<UserDocument>;
 
     constructor() {
-        const db = MongoDBClient.getInstance().getDb();
-        this.collection = db.collection<UserDocument>('users');
+        const connection = MongoDatabase.getInstance().getConnection();
+        if (!connection || !connection.db) {
+            throw new Error('Database is not connected');
+        }
+        this.collection = connection.db.collection<UserDocument>('users');
     }
 
     async save(user: User): Promise<void> {

@@ -1,3 +1,4 @@
+import 'module-alias/register';
 import { env } from '@config/env.config';
 import { logger } from '@shared/infrastructure/logger';
 import { MongoDatabase } from '@shared/infrastructure/database/mongodb';
