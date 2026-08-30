@@ -6,16 +6,14 @@ import { BaseError } from '@shared/core/errors/base.error';
 
 describe('UserController Unit Tests', () => {
     let controller: UserController;
-    let mockCreateUserUseCase: any;
-    let mockAuthenticateUserUseCase: any;
+    let mockCreateUserUseCase: { execute: ReturnType<typeof vi.fn> };
     let mockReq: Partial<Request>;
     let mockRes: Partial<Response>;
     let mockNext: NextFunction;
 
     beforeEach(() => {
         mockCreateUserUseCase = { execute: vi.fn() };
-        mockAuthenticateUserUseCase = { execute: vi.fn() };
-        controller = new UserController(mockCreateUserUseCase, mockAuthenticateUserUseCase);
+        controller = new UserController(mockCreateUserUseCase as any);
 
         mockReq = { body: {} };
         mockRes = {
@@ -56,5 +54,15 @@ describe('UserController Unit Tests', () => {
             success: false,
             error: 'Invalid input',
         });
+    });
+
+    it('should pass error to next function if use case throws', async () => {
+        mockReq.body = { email: 'test@example.com', password: 'Password123' };
+        const unhandledError = new Error('Database down');
+        mockCreateUserUseCase.execute.mockRejectedValue(unhandledError);
+
+        await controller.register(mockReq as Request, mockRes as Response, mockNext);
+
+        expect(mockNext).toHaveBeenCalledWith(unhandledError);
     });
 });

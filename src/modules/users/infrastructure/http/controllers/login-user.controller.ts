@@ -1,16 +1,61 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticateUser } from '@modules/users/application/use-cases/authenticate-user';
-import { MongoUserRepository } from '@modules/users/infrastructure/repositories/mongo-user.repository';
 
 export class LoginUserController {
-    public static async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
+    constructor(private readonly authenticateUserUseCase: AuthenticateUser) {}
+
+    /**
+     * @openapi
+     * /auth/login:
+     *   post:
+     *     tags:
+     *       - Authentication
+     *     summary: Authenticate user and return JWT token
+     *     description: Authenticates user credentials and returns a JWT access token.
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - email
+     *               - password
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *                 example: user@nexus.com
+     *               password:
+     *                 type: string
+     *                 format: password
+     *                 example: Password123
+     *     responses:
+     *       200:
+     *         description: Login successful
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 token:
+     *                   type: string
+     *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+     *                 user:
+     *                   type: object
+     *                   properties:
+     *                     id:
+     *                       type: string
+     *                     email:
+     *                       type: string
+     *       401:
+     *         description: Invalid email or password
+     */
+    public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { email, password } = req.body;
 
-            const userRepository = new MongoUserRepository();
-            const authenticateUserUseCase = new AuthenticateUser(userRepository);
-
-            const result = await authenticateUserUseCase.execute({ email, password });
+            const result = await this.authenticateUserUseCase.execute({ email, password });
 
             if (result.isErr) {
                 res.status(result.error.statusCode || 400).json({

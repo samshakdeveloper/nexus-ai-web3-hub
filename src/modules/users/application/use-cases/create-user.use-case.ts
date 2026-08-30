@@ -1,9 +1,10 @@
-import { UserRepository } from '../../domain/user.repository';
-import { User } from '../../domain/user.entity';
-import { UserEmail } from '../../domain/value-objects/user-email';
-import { UserPassword } from '../../domain/value-objects/user-password';
-import { Result, ok, err } from '../../../../shared/core/result';
-import { BaseError } from '../../../../shared/core/errors/base.error';
+import { UserRepository } from '@modules/users/domain/user.repository';
+import { User } from '@modules/users/domain/user.entity';
+import { UserEmail } from '@modules/users/domain/value-objects/user-email';
+import { UserPassword } from '@modules/users/domain/value-objects/user-password';
+import { Result, ok, err } from '@shared/core/result';
+import { BaseError } from '@shared/core/errors/base.error';
+import { PasswordHasher } from '@shared/infrastructure/security/password-hasher';
 
 export interface CreateUserDTO {
     email: string;
@@ -25,7 +26,8 @@ export class CreateUserUseCase {
             return err(emailResult.error);
         }
 
-        const passwordResult = UserPassword.create(dto.password);
+        const hashedPassword = await PasswordHasher.hash(dto.password);
+        const passwordResult = UserPassword.create(hashedPassword);
         if (passwordResult.isErr) {
             return err(passwordResult.error);
         }

@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { authRouter } from '@modules/users/infrastructure/http/routes/auth.routes';
 import { userRouter } from '@modules/users/infrastructure/http/routes/user.routes';
 import { errorMiddleware } from '@shared/infrastructure/http/middlewares/error.middleware';
 import swaggerUi from 'swagger-ui-express';
@@ -22,6 +23,7 @@ app.get('/health', (_req, res) => {
 
 // Routes
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/auth', authRouter);
 
 // Global Error Handler Middleware
 app.use(errorMiddleware);
