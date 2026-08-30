@@ -13,14 +13,12 @@ interface UserDocument extends Document {
 }
 
 export class MongoUserRepository implements UserRepository {
-    private collection: Collection<UserDocument>;
-
-    constructor() {
+    private get collection(): Collection<UserDocument> {
         const connection = MongoDatabase.getInstance().getConnection();
         if (!connection || !connection.db) {
             throw new Error('Database is not connected');
         }
-        this.collection = connection.db.collection<UserDocument>('users');
+        return connection.db.collection<UserDocument>('users');
     }
 
     async save(user: User): Promise<void> {
