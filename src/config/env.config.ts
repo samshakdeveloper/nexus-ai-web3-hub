@@ -17,6 +17,10 @@ const envSchema = z.object({
     OPENAI_API_KEY: z.string().min(1, { message: 'OPENAI_API_KEY is required' }),
     TELEGRAM_BOT_TOKEN: z.string().min(1, { message: 'TELEGRAM_BOT_TOKEN is required' }),
     ETH_RPC_URL: z.string().url({ message: 'ETH_RPC_URL must be a valid RPC URL' }),
+
+    // JWT Configurations
+    JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters long'),
+    JWT_EXPIRES_IN: z.string().default('1d'),
 });
 
 export interface EnvConfig {
@@ -29,6 +33,8 @@ export interface EnvConfig {
     OPENAI_API_KEY: string;
     TELEGRAM_BOT_TOKEN: string;
     ETH_RPC_URL: string;
+    JWT_SECRET: string;
+    JWT_EXPIRES_IN: string;
 }
 
 const parseEnv = (): EnvConfig => {

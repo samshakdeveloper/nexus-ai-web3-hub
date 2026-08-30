@@ -3,6 +3,9 @@ import { AuthenticateUser, InvalidCredentialsError } from './authenticate-user';
 import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
+import { PasswordHasher } from '@shared/infrastructure/security/password-hasher';
+import { JwtService } from '@shared/infrastructure/security/jwt.service';
+
 
 describe('AuthenticateUser Use Case', () => {
     let authenticateUser: AuthenticateUser;
@@ -10,13 +13,19 @@ describe('AuthenticateUser Use Case', () => {
 
     const testEmail = 'test@nexus.com';
     const testPassword = 'Password123';
+    const mockToken = 'mock_jwt_token_string';
 
     beforeEach(() => {
-        // ایجاد Mock برای ریپازیتوری کاربران
-        mockUserRepository = {
+        vi.restoreAllMocks(); // ۱. ابتدا پاکسازی ماک‌ها
+
+        mockUserRepository = { // ۲. تعریف ماک ریپازیتوری
             findByEmail: vi.fn(),
         };
         authenticateUser = new AuthenticateUser(mockUserRepository as IUserRepository);
+
+        // ۳. تعریف Spy روی سرویس‌های جانبی
+        vi.spyOn(PasswordHasher, 'compare').mockResolvedValue(true);
+        vi.spyOn(JwtService, 'generateToken').mockReturnValue(mockToken);
     });
 
     it('should successfully authenticate a user when valid credentials are provided', async () => {
@@ -40,18 +49,32 @@ describe('AuthenticateUser Use Case', () => {
         });
 
         expect(result.isOk).toBe(true);
-        expect(result.value).toHaveProperty('id');
-        expect(result.value?.email).toBe(testEmail);
+        expect(result.value).toEqual({
+            token: mockToken,
+            user: {
+                id: expect.any(String),
+                email: testEmail,
+            },
+        });
         expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(testEmail);
+
     });
 
-    it('should fail with InvalidCredentialsError if user does not exist', async () => {
-        // شبیه‌سازی عدم یافتن کاربر
-        vi.mocked(mockUserRepository.findByEmail).mockResolvedValueOnce(null);
+    it('should fail with InvalidCredentialsError if password comparison fails', async () => {
+        const emailOrError = UserEmail.create(testEmail);
+        const userOrError = User.create({
+            email: emailOrError.value!,
+            password: testPassword,
+        });
+
+        const mockUser = userOrError.isOk ? userOrError.value : userOrError;
+
+        vi.mocked(mockUserRepository.findByEmail).mockResolvedValueOnce(mockUser as any);
+        vi.spyOn(PasswordHasher, 'compare').mockResolvedValueOnce(false);
 
         const result = await authenticateUser.execute({
-            email: 'notfound@nexus.com',
-            password: testPassword,
+            email: testEmail,
+            password: 'WrongPassword',
         });
 
         expect(result.isErr).toBe(true);
