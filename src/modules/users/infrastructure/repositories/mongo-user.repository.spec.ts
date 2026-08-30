@@ -3,9 +3,9 @@ import { MongoUserRepository } from './mongo-user.repository';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
-import { MongoDBClient } from '@shared/infrastructure/database/mongodb';
+import { MongoDatabase } from '@shared/infrastructure/database/mongodb';
 
-// ماک کردن درست الگوی Singleton و متد getInstance
+// ماک کردن درست Singleton کلاس MongoDatabase
 vi.mock('@shared/infrastructure/database/mongodb', () => {
     const mockCollection = {
         updateOne: vi.fn(),
@@ -17,9 +17,11 @@ vi.mock('@shared/infrastructure/database/mongodb', () => {
     };
 
     return {
-        MongoDBClient: {
+        MongoDatabase: {
             getInstance: vi.fn().mockReturnValue({
-                getDb: () => mockDb,
+                getConnection: () => ({
+                    db: mockDb,
+                }),
             }),
         },
     };
@@ -30,9 +32,9 @@ describe('MongoUserRepository', () => {
     let mockCollection: any;
 
     beforeEach(() => {
-        // دسترسی به همان Collection ماک‌شده جهت تنظیم رفتارهای هر تست
-        const instance = MongoDBClient.getInstance();
-        mockCollection = instance.getDb().collection('users');
+        const instance = MongoDatabase.getInstance();
+        const connection = instance.getConnection();
+        mockCollection = connection?.db.collection('users');
 
         mockCollection.updateOne.mockReset().mockResolvedValue({});
         mockCollection.findOne.mockReset();
