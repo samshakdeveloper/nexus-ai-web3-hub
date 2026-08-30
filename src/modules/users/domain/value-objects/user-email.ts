@@ -4,7 +4,7 @@ import { BaseError } from '../../../../shared/core/errors/base.error';
 
 export interface UserEmailProps {
     value: string;
-    [key: string]: unknown; // اضافه کردن Index Signature
+    [key: string]: unknown;
 }
 
 export class InvalidEmailError extends BaseError {

@@ -2,10 +2,11 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { UserController } from '@modules/users/infrastructure/http/controllers/user.controller';
 import { CreateUserUseCase } from '@modules/users/application/use-cases/create-user.use-case';
 import { MongoUserRepository } from '@modules/users/infrastructure/repositories/mongo-user.repository';
+import { validateBody } from '@shared/infrastructure/http/middlewares/validation.middleware';
+import { registerUserSchema } from '@modules/users/infrastructure/http/validators/register-user.schema';
 
 const userRouter = Router();
 
-// Composition Root / Manual DI Setup
 const userRepository = new MongoUserRepository();
 const createUserUseCase = new CreateUserUseCase(userRepository);
 const userController = new UserController(createUserUseCase);
@@ -41,8 +42,10 @@ const userController = new UserController(createUserUseCase);
  *       400:
  *         description: Invalid input or user already exists
  */
-userRouter.post('/register', (req: Request, res: Response, next: NextFunction) =>
-    userController.register(req, res, next)
+userRouter.post(
+    '/register',
+    validateBody(registerUserSchema),
+    (req: Request, res: Response, next: NextFunction) => userController.register(req, res, next)
 );
 
 export { userRouter };

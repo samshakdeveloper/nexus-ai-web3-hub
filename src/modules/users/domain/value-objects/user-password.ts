@@ -4,7 +4,7 @@ import { BaseError } from '../../../../shared/core/errors/base.error';
 
 export interface UserPasswordProps {
     value: string;
-    [key: string]: unknown; // اضافه کردن این خط
+    [key: string]: unknown;
 }
 
 export class InvalidPasswordError extends BaseError {

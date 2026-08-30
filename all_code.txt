@@ -1142,54 +1142,6 @@ export type Result<T, E> = Ok<T, E> | Err<T, E>;
 
 export const ok = <T, E = never>(value: T): Result<T, E> => new Ok<T, E>(value);
 export const err = <T = never, E = unknown>(error: E): Result<T, E> => new Err<T, E>(error); 
-=== FILE: F:\nexus-ai-web3-hub\src\shared\core\errors\app.error.ts ===  
-export abstract class AppError extends Error {
-    public abstract readonly statusCode: number;
-
-    constructor(
-        message: string,
-        public readonly details: Record<string, unknown> | null = null
-    ) {
-        super(message);
-        Object.setPrototypeOf(this, new.target.prototype);
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-
-export class NotFoundError extends AppError {
-    public readonly statusCode = 404;
-    constructor(message = 'Resource not found', details: Record<string, unknown> | null = null) {
-        super(message, details);
-    }
-}
-
-export class ValidationError extends AppError {
-    public readonly statusCode = 400;
-    constructor(message = 'Validation error', details: Record<string, unknown> | null = null) {
-        super(message, details);
-    }
-}
-
-export class UnauthorizedError extends AppError {
-    public readonly statusCode = 401;
-    constructor(message = 'Unauthorized access', details: Record<string, unknown> | null = null) {
-        super(message, details);
-    }
-}
-
-export class ForbiddenError extends AppError {
-    public readonly statusCode = 403;
-    constructor(message = 'Forbidden action', details: Record<string, unknown> | null = null) {
-        super(message, details);
-    }
-}
-
-export class InternalServerError extends AppError {
-    public readonly statusCode = 500;
-    constructor(message = 'Internal server error', details: Record<string, unknown> | null = null) {
-        super(message, details);
-    }
-} 
 === FILE: F:\nexus-ai-web3-hub\src\shared\core\errors\base.error.spec.ts ===  
 import { describe, it, expect } from 'vitest';
 import { DomainError, NotFoundError } from './base.error';
@@ -1216,7 +1168,7 @@ export abstract class BaseError extends Error {
 
     constructor(
         message: string,
-        code = 'INTERNAL_ERROR', // مقدار پیش‌فرض اضافه شد
+        code = 'INTERNAL_SERVER_ERROR',
         statusCode = 500,
         details?: Record<string, unknown>
     ) {
@@ -1236,15 +1188,36 @@ export class DomainError extends BaseError {
     }
 }
 
-export class InfrastructureError extends BaseError {
-    constructor(message: string, code = 'INFRASTRUCTURE_ERROR', details?: Record<string, unknown>) {
-        super(message, code, 500, details);
+export class ValidationError extends BaseError {
+    constructor(message = 'Validation failed', details?: Record<string, unknown>) {
+        super(message, 'VALIDATION_ERROR', 400, details);
+    }
+}
+
+export class UnauthorizedError extends BaseError {
+    constructor(message = 'Unauthorized access', details?: Record<string, unknown>) {
+        super(message, 'UNAUTHORIZED', 401, details);
+    }
+}
+
+export class ForbiddenError extends BaseError {
+    constructor(message = 'Forbidden action', details?: Record<string, unknown>) {
+        super(message, 'FORBIDDEN', 403, details);
     }
 }
 
 export class NotFoundError extends BaseError {
-    constructor(entity: string, id: string) {
-        super(`${entity} with identifier ${id} was not found.`, 'NOT_FOUND', 404);
+    constructor(entity: string, identifier?: string) {
+        const msg = identifier
+            ? `${entity} with identifier ${identifier} was not found.`
+            : `${entity} not found.`;
+        super(msg, 'NOT_FOUND', 404);
+    }
+}
+
+export class InfrastructureError extends BaseError {
+    constructor(message: string, code = 'INFRASTRUCTURE_ERROR', details?: Record<string, unknown>) {
+        super(message, code, 500, details);
     }
 } 
 === FILE: F:\nexus-ai-web3-hub\src\shared\domain\aggregate-root.ts ===  
@@ -1720,10 +1693,10 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
 import { errorMiddleware } from './error.middleware';
-import { NotFoundError } from '@shared/core/errors/app.error';
+import { NotFoundError, BaseError } from '@shared/core/errors/base.error';
 import { logger } from '@shared/infrastructure/logger';
+import { CORRELATION_ID_HEADER } from '../correlation-id.middleware';
 
-// تمیز کردن لاگ‌ها در محیط تست
 vi.mock('@shared/infrastructure/logger', () => ({
     logger: {
         warn: vi.fn(),
@@ -1733,83 +1706,130 @@ vi.mock('@shared/infrastructure/logger', () => ({
 }));
 
 describe('Error Middleware Unit Tests', () => {
+    let mockReq: Partial<Request>;
+    let mockRes: Partial<Response>;
+    let mockNext: NextFunction;
+
     beforeEach(() => {
         vi.clearAllMocks();
-    });
-
-    it('should handle AppError and send correct status and json response', () => {
-        const error = new NotFoundError('User not found');
-        const req = {} as Request;
-        const res = {
+        mockReq = {
+            headers: {
+                [CORRELATION_ID_HEADER]: 'test-correlation-id-123',
+            },
+        };
+        mockRes = {
             status: vi.fn().mockReturnThis(),
             json: vi.fn(),
-        } as unknown as Response;
-        const next = vi.fn() as NextFunction;
+        };
+        mockNext = vi.fn();
+    });
 
-        errorMiddleware(error, req, res, next);
+    it('should handle BaseError (operational client errors) with correct status and JSON response', () => {
+        const error = new NotFoundError('User', 'usr_123');
 
-        expect(logger.warn).toHaveBeenCalled();
-        expect(res.status).toHaveBeenCalledWith(404);
-        expect(res.json).toHaveBeenCalledWith({
-            status: 'error',
-            statusCode: 404,
-            message: 'User not found',
+        // آرگومان اول error و آرگومان دوم mockReq است
+        errorMiddleware(error, mockReq as Request, mockRes as Response, mockNext);
+
+        expect(logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('[test-correlation-id-123] Client Error [NOT_FOUND]'),
+            expect.any(Object)
+        );
+        expect(mockRes.status).toHaveBeenCalledWith(404);
+        expect(mockRes.json).toHaveBeenCalledWith({
+            success: false,
+            error: {
+                code: 'NOT_FOUND',
+                message: 'User with identifier usr_123 was not found.',
+            },
+            correlationId: 'test-correlation-id-123',
         });
     });
 
-    it('should handle unhandled errors with status 500', () => {
-        const error = new Error('Unexpected crash');
-        const req = {} as Request;
-        const res = {
-            status: vi.fn().mockReturnThis(),
-            json: vi.fn(),
-        } as unknown as Response;
-        const next = vi.fn() as NextFunction;
+    it('should handle unhandled unexpected errors with 500 status code', () => {
+        const error = new Error('Unexpected database failure');
 
-        errorMiddleware(error, req, res, next);
+        errorMiddleware(error, mockReq as Request, mockRes as Response, mockNext);
 
-        expect(logger.error).toHaveBeenCalled();
-        expect(res.status).toHaveBeenCalledWith(500);
-        expect(res.json).toHaveBeenCalledWith(
+        expect(logger.error).toHaveBeenCalledWith(
+            expect.stringContaining('[test-correlation-id-123] Unhandled Fatal Error'),
+            expect.objectContaining({ stack: expect.any(String) })
+        );
+        expect(mockRes.status).toHaveBeenCalledWith(500);
+        expect(mockRes.json).toHaveBeenCalledWith(
             expect.objectContaining({
-                status: 'error',
-                statusCode: 500,
+                success: false,
+                error: expect.objectContaining({
+                    code: 'INTERNAL_SERVER_ERROR',
+                }),
+                correlationId: 'test-correlation-id-123',
+            })
+        );
+    });
+
+    it('should fallback to N/A correlationId if correlation header is missing', () => {
+        const reqWithoutHeader = { headers: {} } as Request;
+        const error = new NotFoundError('Resource');
+
+        errorMiddleware(error, reqWithoutHeader, mockRes as Response, mockNext);
+
+        expect(mockRes.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                correlationId: 'N/A',
             })
         );
     });
 }); 
 === FILE: F:\nexus-ai-web3-hub\src\shared\infrastructure\http\middlewares\error.middleware.ts ===  
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '@shared/core/errors/app.error';
+import { BaseError } from '@shared/core/errors/base.error';
 import { logger } from '@shared/infrastructure/logger';
 import { env } from '@config/env.config';
+import { CORRELATION_ID_HEADER } from '../correlation-id.middleware';
 
 export const errorMiddleware = (
     error: Error,
-    _req: Request,
+    req: Request,
     res: Response,
     _next: NextFunction
 ): void => {
-    if (error instanceof AppError) {
-        logger.warn(`AppError [${error.statusCode}]: ${error.message}`, {
-            details: error.details,
-        });
+    const correlationId = (req?.headers?.[CORRELATION_ID_HEADER] as string) || 'N/A';
+
+    if (error instanceof BaseError) {
+        if (error.statusCode >= 500) {
+            logger.error(`[${correlationId}] Server Error [${error.code}]: ${error.message}`, {
+                stack: error.stack,
+                details: error.details,
+            });
+        } else {
+            logger.warn(`[${correlationId}] Client Error [${error.code}]: ${error.message}`, {
+                details: error.details,
+            });
+        }
 
         res.status(error.statusCode).json({
-            status: 'error',
-            statusCode: error.statusCode,
-            message: error.message,
-            ...(error.details && { details: error.details }),
+            success: false,
+            error: {
+                code: error.code,
+                message: error.message,
+                ...(error.details && { details: error.details }),
+            },
+            correlationId,
         });
         return;
     }
 
-    logger.error(`Unhandled Error: ${error.message}`, { stack: error.stack });
+    // Unhandled unexpected exceptions
+    logger.error(`[${correlationId}] Unhandled Fatal Error: ${error.message}`, {
+        stack: error.stack,
+    });
 
     res.status(500).json({
-        status: 'error',
-        statusCode: 500,
-        message: env.NODE_ENV === 'production' ? 'Internal server error' : error.message,
+        success: false,
+        error: {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: env.NODE_ENV === 'production' ? 'An unexpected error occurred' : error.message,
+        },
+        correlationId,
     });
 }; 
 === FILE: F:\nexus-ai-web3-hub\src\shared\infrastructure\http\middlewares\validation.middleware.spec.ts ===  

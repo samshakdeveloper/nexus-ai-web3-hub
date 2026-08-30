@@ -10,7 +10,6 @@ export class Ok<T, _E> {
 
 export class Err<_T, E> {
     readonly isOk: false = false;
-    readonly isTrue: true = true; // یا readonly isErr: true = true
     readonly isErr: true = true;
 
     constructor(public readonly error: E) {}
