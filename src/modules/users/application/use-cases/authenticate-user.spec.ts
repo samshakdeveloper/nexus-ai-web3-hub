@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AuthenticateUser, InvalidCredentialsError } from './authenticate-user';
+import { AuthenticateUser, InvalidCredentialsError ,AccountDisabledError } from './authenticate-user';
 import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
@@ -80,5 +80,25 @@ describe('AuthenticateUser Use Case', () => {
         expect(result.isErr).toBe(true);
         expect(result.error).toBeInstanceOf(InvalidCredentialsError);
         expect(result.error.statusCode).toBe(401);
+    });
+    it('should fail with AccountDisabledError if user is inactive', async () => {
+        const emailOrError = UserEmail.create(testEmail);
+        const userOrError = User.create({
+            email: emailOrError.value!,
+            password: testPassword,
+            isActive: false,
+        });
+        const mockUser = userOrError.isOk ? userOrError.value : userOrError;
+
+        vi.mocked(mockUserRepository.findByEmail).mockResolvedValueOnce(mockUser as any);
+
+        const result = await authenticateUser.execute({
+            email: testEmail,
+            password: testPassword,
+        });
+
+        expect(result.isErr).toBe(true);
+        expect(result.error).toBeInstanceOf(AccountDisabledError);
+        expect(result.error.statusCode).toBe(403);
     });
 });

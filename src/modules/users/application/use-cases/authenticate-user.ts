@@ -11,6 +11,13 @@ export class InvalidCredentialsError extends BaseError {
     }
 }
 
+export class AccountDisabledError extends BaseError {
+    constructor() {
+        super('This account has been disabled', 'ACCOUNT_DISABLED', 403);
+        this.name = 'AccountDisabledError';
+    }
+}
+
 export interface AuthResponseDto {
     token: string;
     user: {
@@ -23,27 +30,29 @@ export class AuthenticateUser {
     constructor(private readonly userRepository: IUserRepository) {}
 
     public async execute(input: { email: string; password: string }): Promise<Result<AuthResponseDto, BaseError>> {
-        // ۱. جستجوی کاربر با ایمیل
         const user = await this.userRepository.findByEmail(input.email);
 
         if (!user) {
             return err(new InvalidCredentialsError());
         }
 
-        // ۲. بررسی صحت کلمه‌عبور با هش ذخیره‌شده
         const isPasswordValid = await PasswordHasher.compare(input.password, user.password.value);
 
         if (!isPasswordValid) {
             return err(new InvalidCredentialsError());
         }
 
-        // ۳. تولید توکن JWT
+        // پسورد درسته، ولی باید بعد از تایید پسورد چک بشه نه قبلش
+        // (تا کسی نتونه با امتحان کردن ایمیل‌ها بفهمه کدوم اکانت غیرفعاله)
+        if (!user.isActive) {
+            return err(new AccountDisabledError());
+        }
+
         const token = JwtService.generateToken({
             userId: user.id.toString(),
             email: user.email.value,
         });
 
-        // ۴. بازگرداندن پاسخ موفقیت‌آمیز همراه با توکن
         return ok({
             token,
             user: {
