@@ -1,5 +1,5 @@
 Folder PATH listing for volume New Volume
-Volume serial number is 000000A0 92D9:A78D
+Volume serial number is 00000095 92D9:A78D
 F:\NEXUS-AI-WEB3-HUB\SRC
 |   app.ts
 |   index.ts
@@ -20,13 +20,8 @@ F:\NEXUS-AI-WEB3-HUB\SRC
 |       +---domain
 |       |   |   user.entity.ts
 |       |   |   user.repository.interface.ts
-|       |   |   user.repository.ts
 |       |   |   user.spec.ts
-|       |   |   user.ts
 |       |   |   
-|       |   +---repositories
-|       |   |       user.repository.interface.ts
-|       |   |       
 |       |   \---value-objects
 |       |           user-email.ts
 |       |           user-password.ts

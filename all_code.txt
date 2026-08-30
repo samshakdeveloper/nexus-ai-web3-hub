@@ -324,10 +324,10 @@ export class AuthenticateUser {
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\application\use-cases\create-user.spec.ts ===  
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateUserUseCase, UserAlreadyExistsError } from './create-user.use-case';
-import { UserRepository } from '../../domain/user.repository';
+import { IUserRepository } from '../../domain/user.repository.interface';
 import { User } from '../../domain/user.entity';
 
-class InMemoryUserRepository implements UserRepository {
+class InMemoryUserRepository implements IUserRepository {
     private users: Map<string, User> = new Map();
 
     async save(user: User): Promise<void> {
@@ -381,7 +381,7 @@ describe('CreateUserUseCase', () => {
     });
 }); 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\application\use-cases\create-user.use-case.ts ===  
-import { UserRepository } from '@modules/users/domain/user.repository';
+import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
@@ -396,12 +396,13 @@ export interface CreateUserDTO {
 
 export class UserAlreadyExistsError extends BaseError {
     constructor(email: string) {
-        super(`User with email ${email} already exists`);
+        super(`User with email ${email} already exists`, 'USER_ALREADY_EXISTS', 400);
+        this.name = 'UserAlreadyExistsError';
     }
 }
 
 export class CreateUserUseCase {
-    constructor(private readonly userRepository: UserRepository) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     public async execute(dto: CreateUserDTO): Promise<Result<User, BaseError>> {
         const emailResult = UserEmail.create(dto.email);
@@ -430,16 +431,34 @@ export class CreateUserUseCase {
     }
 } 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\user.entity.ts ===  
-import { Entity } from '../../../shared/domain/entity';
+import { Entity } from '@shared/domain/entity';
 import { UserEmail } from './value-objects/user-email';
 import { UserPassword } from './value-objects/user-password';
 
 export interface UserProps {
     email: UserEmail;
     password: UserPassword;
+    fullName?: string | undefined;
+    role: 'user' | 'admin';
+    isActive: boolean;
     createdAt: Date;
+    updatedAt?: Date | undefined;
 }
 
+export interface CreateUserProps {
+    email: UserEmail;
+    password: UserPassword;
+    fullName?: string | undefined;
+    role?: 'user' | 'admin' | undefined;
+    isActive?: boolean | undefined;
+    createdAt?: Date | undefined;
+    updatedAt?: Date | undefined;
+}
+
+/**
+ * Domain Entity representing a User in the system boundary.
+ * Enforces business constraints and immutable identification.
+ */
 export class User extends Entity<UserProps> {
     get email(): UserEmail {
         return this.props.email;
@@ -449,166 +468,100 @@ export class User extends Entity<UserProps> {
         return this.props.password;
     }
 
+    get fullName(): string | undefined {
+        return this.props.fullName;
+    }
+
+    get role(): 'user' | 'admin' {
+        return this.props.role;
+    }
+
+    get isActive(): boolean {
+        return this.props.isActive;
+    }
+
     get createdAt(): Date {
         return this.props.createdAt;
     }
 
-    public static create(props: Omit<UserProps, 'createdAt'> & { createdAt?: Date }, id?: string): User {
+    get updatedAt(): Date | undefined {
+        return this.props.updatedAt;
+    }
+
+    public static create(props: CreateUserProps, id?: string): User {
+        const now = new Date();
+
         return new User(
             {
-                ...props,
-                createdAt: props.createdAt ? props.createdAt : new Date(),
+                email: props.email,
+                password: props.password,
+                fullName: props.fullName,
+                role: props.role ? props.role : 'user',
+                isActive: props.isActive !== undefined ? props.isActive : true,
+                createdAt: props.createdAt ? props.createdAt : now,
+                updatedAt: props.updatedAt ? props.updatedAt : now,
             },
             id
         );
     }
 } 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\user.repository.interface.ts ===  
-import { User } from './user.entity'; // یا مسیر صحیح انتیتی کاربر
-
-export interface IUserRepository {
-    findByEmail(email: string): Promise<User | null>;
-    save(user: User): Promise<void>;
-} 
-=== FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\user.repository.ts ===  
 import { User } from './user.entity';
 
-export interface UserRepository {
+/**
+ * Domain Repository Interface for User Aggregate.
+ * Defines contract for data persistence abstraction (DIP).
+ */
+export interface IUserRepository {
     save(user: User): Promise<void>;
     findByEmail(email: string): Promise<User | null>;
     findById(id: string): Promise<User | null>;
 } 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\user.spec.ts ===  
 import { describe, it, expect } from 'vitest';
-import { User } from './user';
+import { User } from './user.entity';
+import { UserEmail } from './value-objects/user-email';
+import { UserPassword } from './value-objects/user-password';
 
 describe('User Domain Entity Unit Tests', () => {
-    it('should create a valid user instance', () => {
-        const result = User.create({
-            email: 'test@example.com',
-            passwordHash: 'hashed_password_123',
-            fullName: 'John Doe',
-            role: 'user',
-            isActive: true,
-        });
+    it('should create a valid user domain entity', () => {
+        const emailResult = UserEmail.create('test@example.com');
+        const passwordResult = UserPassword.create('Password123');
 
-        expect(result.isOk).toBe(true);
-        if (result.isOk) {
-            const user = result.unwrap();
-            expect(user.email).toBe('test@example.com');
+        expect(emailResult.isOk).toBe(true);
+        expect(passwordResult.isOk).toBe(true);
+
+        if (emailResult.isOk && passwordResult.isOk) {
+            const user = User.create({
+                email: emailResult.value,
+                password: passwordResult.value,
+                fullName: 'John Doe',
+                role: 'user',
+            });
+
+            expect(user.email.value).toBe('test@example.com');
             expect(user.fullName).toBe('John Doe');
             expect(user.role).toBe('user');
+            expect(user.isActive).toBe(true);
+            expect(user.id).toBeDefined();
         }
     });
 
-    it('should fail creation with invalid email', () => {
-        const result = User.create({
-            email: 'invalid-email',
-            passwordHash: 'hashed_password_123',
-            fullName: 'John Doe',
-            role: 'user',
-            isActive: true,
+    it('should respect custom status and role configurations', () => {
+        const email = UserEmail.create('admin@example.com').unwrap();
+        const password = UserPassword.create('AdminPass123').unwrap();
+
+        const user = User.create({
+            email,
+            password,
+            role: 'admin',
+            isActive: false,
         });
 
-        expect(result.isErr).toBe(true);
-        if (result.isErr) {
-            expect(result.error.message).toBe('Invalid email format');
-        }
-    });
-
-    it('should fail creation with short full name', () => {
-        const result = User.create({
-            email: 'test@example.com',
-            passwordHash: 'hashed_password_123',
-            fullName: 'A',
-            role: 'user',
-            isActive: true,
-        });
-
-        expect(result.isErr).toBe(true);
-        if (result.isErr) {
-            expect(result.error.message).toBe('Full name must be at least 2 characters long');
-        }
+        expect(user.role).toBe('admin');
+        expect(user.isActive).toBe(false);
     });
 }); 
-=== FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\user.ts ===  
-import { AggregateRoot } from '@shared/domain/aggregate-root';
-import { Result, ok, err } from '@shared/core/result';
-import { ValidationError } from '@shared/core/errors/app.error';
-
-export interface UserProps {
-    email: string;
-    passwordHash: string;
-    fullName: string;
-    role?: 'user' | 'admin';
-    isActive?: boolean;
-    createdAt?: Date;
-    updatedAt?: Date;
-}
-
-export class User extends AggregateRoot<UserProps> {
-    private constructor(props: UserProps, id?: string) {
-        super(props, id);
-    }
-
-    public static create(props: UserProps, id?: string): Result<User, ValidationError> {
-        if (!props.email || !props.email.includes('@')) {
-            return err(new ValidationError('Invalid email format'));
-        }
-
-        if (!props.fullName || props.fullName.trim().length < 2) {
-            return err(new ValidationError('Full name must be at least 2 characters long'));
-        }
-
-        const isActive = props.isActive !== undefined ? props.isActive : true;
-        const role = props.role ? props.role : 'user';
-        const createdAt = props.createdAt ? props.createdAt : new Date();
-        const updatedAt = props.updatedAt ? props.updatedAt : new Date();
-
-        const user = new User(
-            {
-                email: props.email,
-                passwordHash: props.passwordHash,
-                fullName: props.fullName,
-                isActive,
-                role,
-                createdAt,
-                updatedAt,
-            },
-            id
-        );
-
-        return ok(user);
-    }
-
-    get email(): string {
-        return this.props.email;
-    }
-
-    get passwordHash(): string {
-        return this.props.passwordHash;
-    }
-
-    get fullName(): string {
-        return this.props.fullName;
-    }
-
-    get role(): 'user' | 'admin' {
-        return this.props.role || 'user';
-    }
-
-    get isActive(): boolean {
-        return this.props.isActive !== undefined ? this.props.isActive : true;
-    }
-} 
-=== FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\repositories\user.repository.interface.ts ===  
-import { User } from '../user';
-
-export interface IUserRepository {
-    save(user: User): Promise<void>;
-    findByEmail(email: string): Promise<User | null>;
-    findById(id: string): Promise<User | null>;
-} 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\domain\value-objects\user-email.ts ===  
 import { ValueObject } from '../../../../shared/domain/value-object';
 import { Result, ok, err } from '../../../../shared/core/result';
@@ -1058,7 +1011,7 @@ describe('MongoUserRepository', () => {
 }); 
 === FILE: F:\nexus-ai-web3-hub\src\modules\users\infrastructure\repositories\mongo-user.repository.ts ===  
 import { Collection, Document } from 'mongodb';
-import { UserRepository } from '@modules/users/domain/user.repository';
+import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
@@ -1071,16 +1024,20 @@ interface UserDocument extends Document {
     createdAt: Date;
 }
 
-export class MongoUserRepository implements UserRepository {
+/**
+ * MongoDB implementation of the IUserRepository interface.
+ * Handles persistence and reconstitution of User domain entities.
+ */
+export class MongoUserRepository implements IUserRepository {
     private get collection(): Collection<UserDocument> {
         const connection = MongoDatabase.getInstance().getConnection();
         if (!connection || !connection.db) {
-            throw new Error('Database is not connected');
+            throw new Error('Database connection is not active.');
         }
         return connection.db.collection<UserDocument>('users');
     }
 
-    async save(user: User): Promise<void> {
+    public async save(user: User): Promise<void> {
         await this.collection.updateOne(
             { _id: user.id },
             {
@@ -1094,7 +1051,7 @@ export class MongoUserRepository implements UserRepository {
         );
     }
 
-    async findByEmail(email: string): Promise<User | null> {
+    public async findByEmail(email: string): Promise<User | null> {
         const doc = await this.collection.findOne({ email: email.toLowerCase() });
         if (!doc) {
             return null;
@@ -1103,7 +1060,7 @@ export class MongoUserRepository implements UserRepository {
         return this.toDomain(doc);
     }
 
-    async findById(id: string): Promise<User | null> {
+    public async findById(id: string): Promise<User | null> {
         const doc = await this.collection.findOne({ _id: id });
         if (!doc) {
             return null;
@@ -1117,7 +1074,7 @@ export class MongoUserRepository implements UserRepository {
         const passwordResult = UserPassword.create(doc.password);
 
         if (emailResult.isErr || passwordResult.isErr) {
-            throw new Error(`Corrupted user data in database for ID: ${doc._id}`);
+            throw new Error(`Corrupted user domain data in database for ID: ${doc._id}`);
         }
 
         return User.create(
@@ -1291,16 +1248,22 @@ export class NotFoundError extends BaseError {
     }
 } 
 === FILE: F:\nexus-ai-web3-hub\src\shared\domain\aggregate-root.ts ===  
+import { randomUUID } from 'node:crypto';
+
+/**
+ * Base class for all Aggregate Roots in the Domain Layer.
+ * Enforces entity boundary and guarantees identifier consistency.
+ */
 export abstract class AggregateRoot<T> {
     protected readonly props: T;
     private readonly _id: string;
 
     protected constructor(props: T, id?: string) {
         this.props = props;
-        this._id = id ? id : Math.random().toString(36).substring(2, 9);
+        this._id = id ? id : randomUUID();
     }
 
-    get id(): string {
+    public get id(): string {
         return this._id;
     }
 } 
