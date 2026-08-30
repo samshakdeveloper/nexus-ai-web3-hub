@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { userRouter } from '@modules/users/infrastructure/http/routes/user.routes';
 import { errorMiddleware } from '@shared/infrastructure/http/middlewares/error.middleware';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from '@config/swagger.config';
 
 const app: Application = express();
 
@@ -10,6 +12,8 @@ const app: Application = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+// Swagger Documentation
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
