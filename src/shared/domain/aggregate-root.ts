@@ -1,13 +1,19 @@
+import { randomUUID } from 'node:crypto';
+
+/**
+ * Base class for all Aggregate Roots in the Domain Layer.
+ * Enforces entity boundary and guarantees identifier consistency.
+ */
 export abstract class AggregateRoot<T> {
     protected readonly props: T;
     private readonly _id: string;
 
     protected constructor(props: T, id?: string) {
         this.props = props;
-        this._id = id ? id : Math.random().toString(36).substring(2, 9);
+        this._id = id ? id : randomUUID();
     }
 
-    get id(): string {
+    public get id(): string {
         return this._id;
     }
 }

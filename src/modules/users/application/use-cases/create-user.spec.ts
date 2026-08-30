@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateUserUseCase, UserAlreadyExistsError } from './create-user.use-case';
-import { UserRepository } from '../../domain/user.repository';
+import { IUserRepository } from '../../domain/user.repository.interface';
 import { User } from '../../domain/user.entity';
 
-class InMemoryUserRepository implements UserRepository {
+class InMemoryUserRepository implements IUserRepository {
     private users: Map<string, User> = new Map();
 
     async save(user: User): Promise<void> {

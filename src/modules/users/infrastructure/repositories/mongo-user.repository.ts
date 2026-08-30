@@ -1,5 +1,5 @@
 import { Collection, Document } from 'mongodb';
-import { UserRepository } from '@modules/users/domain/user.repository';
+import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
@@ -12,16 +12,20 @@ interface UserDocument extends Document {
     createdAt: Date;
 }
 
-export class MongoUserRepository implements UserRepository {
+/**
+ * MongoDB implementation of the IUserRepository interface.
+ * Handles persistence and reconstitution of User domain entities.
+ */
+export class MongoUserRepository implements IUserRepository {
     private get collection(): Collection<UserDocument> {
         const connection = MongoDatabase.getInstance().getConnection();
         if (!connection || !connection.db) {
-            throw new Error('Database is not connected');
+            throw new Error('Database connection is not active.');
         }
         return connection.db.collection<UserDocument>('users');
     }
 
-    async save(user: User): Promise<void> {
+    public async save(user: User): Promise<void> {
         await this.collection.updateOne(
             { _id: user.id },
             {
@@ -35,7 +39,7 @@ export class MongoUserRepository implements UserRepository {
         );
     }
 
-    async findByEmail(email: string): Promise<User | null> {
+    public async findByEmail(email: string): Promise<User | null> {
         const doc = await this.collection.findOne({ email: email.toLowerCase() });
         if (!doc) {
             return null;
@@ -44,7 +48,7 @@ export class MongoUserRepository implements UserRepository {
         return this.toDomain(doc);
     }
 
-    async findById(id: string): Promise<User | null> {
+    public async findById(id: string): Promise<User | null> {
         const doc = await this.collection.findOne({ _id: id });
         if (!doc) {
             return null;
@@ -58,7 +62,7 @@ export class MongoUserRepository implements UserRepository {
         const passwordResult = UserPassword.create(doc.password);
 
         if (emailResult.isErr || passwordResult.isErr) {
-            throw new Error(`Corrupted user data in database for ID: ${doc._id}`);
+            throw new Error(`Corrupted user domain data in database for ID: ${doc._id}`);
         }
 
         return User.create(

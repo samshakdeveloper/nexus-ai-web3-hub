@@ -1,4 +1,4 @@
-import { UserRepository } from '@modules/users/domain/user.repository';
+import { IUserRepository } from '@modules/users/domain/user.repository.interface';
 import { User } from '@modules/users/domain/user.entity';
 import { UserEmail } from '@modules/users/domain/value-objects/user-email';
 import { UserPassword } from '@modules/users/domain/value-objects/user-password';
@@ -13,12 +13,13 @@ export interface CreateUserDTO {
 
 export class UserAlreadyExistsError extends BaseError {
     constructor(email: string) {
-        super(`User with email ${email} already exists`);
+        super(`User with email ${email} already exists`, 'USER_ALREADY_EXISTS', 400);
+        this.name = 'UserAlreadyExistsError';
     }
 }
 
 export class CreateUserUseCase {
-    constructor(private readonly userRepository: UserRepository) {}
+    constructor(private readonly userRepository: IUserRepository) {}
 
     public async execute(dto: CreateUserDTO): Promise<Result<User, BaseError>> {
         const emailResult = UserEmail.create(dto.email);
